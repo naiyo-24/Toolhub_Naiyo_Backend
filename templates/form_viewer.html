@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naiyo Form Viewer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary: #FFD700;
+            --primary-hover: #E5C100;
+            --bg-color: #0A0A0A;
+            --surface: rgba(255, 255, 255, 0.05);
+            --surface-border: rgba(255, 255, 255, 0.1);
+            --text-main: #FFFFFF;
+            --text-muted: #A0A0A0;
+            --error: #FF4A4A;
+        }
+
+        /* Toast Notification Styles */
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 4px solid var(--primary);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.error {
+            border-left-color: var(--error);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(255, 215, 0, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 640px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header-card {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 4px solid var(--primary);
+        }
+
+        .header-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-desc {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .field-card {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .field-card:focus-within {
+            border-color: rgba(255, 215, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .field-label {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .required-star {
+            color: var(--error);
+            margin-left: 4px;
+        }
+
+        /* Inputs */
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        input[type="date"],
+        input[type="time"],
+        textarea,
+        select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 16px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.1);
+        }
+
+        select option {
+            background: var(--bg-color);
+            color: white;
+        }
+
+        /* Radio & Checkbox */
+        .option-label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+
+        .option-label:hover {
+            color: white;
+        }
+
+        .option-label input {
+            margin-right: 12px;
+            accent-color: var(--primary);
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* File Upload */
+        .file-upload-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn-upload {
+            border: 1px dashed var(--surface-border);
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-upload:hover {
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .file-upload-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .file-name {
+            margin-top: 12px;
+            font-size: 14px;
+            color: var(--primary);
+        }
+
+        /* Submit Button */
+        .btn-submit {
+            background: var(--primary);
+            color: black;
+            border: none;
+            padding: 18px 40px;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            width: auto;
+            display: inline-block;
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Success State */
+        .success-state {
+            display: none;
+            text-align: center;
+            padding: 60px 0;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            color: var(--primary);
+            margin-bottom: 24px;
+            animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            80% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .loader {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: black;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--surface-border);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <script>
+        function showToast(message, isError = false) {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            toast.className = `toast ${isError ? "error" : ""}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.add("show");
+            }, 10);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove("show");
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+    </script>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container" id="main-container" style="display: none;">
+        <div class="header-card">
+            <h1 class="header-title" id="form-title">Loading...</h1>
+            <p class="header-desc" id="form-desc"></p>
+        </div>
+
+        <form id="dynamic-form">
+            <div class="field-card">
+                <div class="field-label">Your Email <span class="required-star">*</span></div>
+                <div>
+                    <input type="email" id="respondent-email" name="respondent_email" placeholder="Your answer" required>
+                </div>
+            </div>
+            <div id="fields-container"></div>
+            <div class="submit-container">
+                <button type="submit" class="btn-submit" id="submit-btn">
+                    <span id="submit-text">Submit</span>
+                    <span class="loader" id="submit-loader"></span>
+                </button>
+            </div>
+        </form>
+
+        <div class="success-state" id="success-state">
+            <div class="success-icon">✓</div>
+            <h2 class="header-title">Response recorded</h2>
+            <p class="header-desc">Your response has been submitted successfully.</p>
+        </div>
+    </div>
+
+    <script>
+        // Extract form_id from URL: e.g. /view/form_id
+        const pathParts = window.location.pathname.split('/');
+        const formId = pathParts[pathParts.length - 1];
+
+        const API_BASE = window.location.origin;
+        let currentForm = null;
+        let fileUploads = {}; // Store uploaded URLs
+
+        async function init() {
+            try {
+                const res = await fetch(`${API_BASE}/form-builder/forms/${formId}`);
+                if (!res.ok) throw new Error('Form not found');
+                currentForm = await res.json();
+
+                if (!currentForm.is_published) {
+                    document.getElementById('form-title').textContent = "Form Closed";
+                    document.getElementById('form-desc').textContent = "This form is no longer accepting responses.";
+                    document.getElementById('dynamic-form').style.display = 'none';
+                } else {
+                    renderForm();
+                }
+            } catch (e) {
+                document.getElementById('form-title').textContent = "Error";
+                document.getElementById('form-desc').textContent = "Could not load this form. It may have been deleted.";
+                document.getElementById('dynamic-form').style.display = 'none';
+            } finally {
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+            }
+        }
+
+        function renderForm() {
+            if (currentForm.header_image_url) {
+                const headerCard = document.querySelector('.header-card');
+                const img = document.createElement('img');
+                img.src = currentForm.header_image_url.startsWith('http') 
+                    ? currentForm.header_image_url 
+                    : API_BASE + currentForm.header_image_url;
+                img.style.width = '100%';
+                img.style.height = '200px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '16px';
+                img.style.marginBottom = '20px';
+                headerCard.insertBefore(img, document.getElementById('form-title'));
+            }
+
+            document.getElementById('form-title').textContent = currentForm.title;
+            if (currentForm.description) {
+                document.getElementById('form-desc').textContent = currentForm.description;
+            } else {
+                document.getElementById('form-desc').style.display = 'none';
+            }
+
+            const container = document.getElementById('fields-container');
+
+            // Sort by order index
+            const fields = currentForm.fields.sort((a, b) => a.order_index - b.order_index);
+
+            fields.forEach(field => {
+                const card = document.createElement('div');
+                card.className = 'field-card';
+
+                const label = document.createElement('div');
+                label.className = 'field-label';
+                label.innerHTML = `${field.label} ${field.is_required ? '<span class="required-star">*</span>' : ''}`;
+                card.appendChild(label);
+
+                const inputWrapper = document.createElement('div');
+
+                if (['text', 'email', 'number', 'date', 'time'].includes(field.field_type)) {
+                    const input = document.createElement('input');
+                    input.type = field.field_type;
+                    input.name = field.label; // Use label as key
+                    if (field.is_required) input.required = true;
+                    input.placeholder = "Your answer";
+                    inputWrapper.appendChild(input);
+                }
+                else if (field.field_type === 'paragraph') {
+                    const textarea = document.createElement('textarea');
+                    textarea.name = field.label;
+                    if (field.is_required) textarea.required = true;
+                    textarea.placeholder = "Your answer";
+                    inputWrapper.appendChild(textarea);
+                }
+                else if (field.field_type === 'dropdown') {
+                    const select = document.createElement('select');
+                    select.name = field.label;
+                    if (field.is_required) select.required = true;
+
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = "";
+                    defaultOpt.textContent = "Select an option";
+                    defaultOpt.disabled = true;
+                    defaultOpt.selected = true;
+                    select.appendChild(defaultOpt);
+
+                    if (field.options) {
+                        field.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            select.appendChild(option);
+                        });
+                    }
+                    inputWrapper.appendChild(select);
+                }
+                else if (field.field_type === 'radio') {
+                    if (field.options) {
+                        field.options.forEach(opt => {
+                            const lbl = document.createElement('label');
+                            lbl.className = 'option-label';
+
+                            const rb = document.createElement('input');
+                            rb.type = 'radio';
+                            rb.name = field.label;
+                            rb.value = opt;
+                            if (field.is_required) rb.required = true; // Radio group required applies to all
+
+                            lbl.appendChild(rb);
+                            lbl.appendChild(document.createTextNode(opt));
+                            inputWrapper.appendChild(lbl);
+                        });
+                    }
+                }
+                else if (field.field_type === 'checkbox') {
+                    if (field.options) {
+                        field.options.forEach(opt => {
+                            const lbl = document.createElement('label');
+                            lbl.className = 'option-label';
+
+                            const cb = document.createElement('input');
+                            cb.type = 'checkbox';
+                            cb.name = field.label + "[]"; // Array syntax
+                            cb.value = opt;
+
+                            lbl.appendChild(cb);
+                            lbl.appendChild(document.createTextNode(opt));
+                            inputWrapper.appendChild(lbl);
+                        });
+                    }
+                }
+                else if (field.field_type === 'file') {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'file-upload-wrapper';
+
+                    const btn = document.createElement('div');
+                    btn.className = 'btn-upload';
+                    btn.innerHTML = `
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Choose File
+                    `;
+
+                    const fileIn = document.createElement('input');
+                    fileIn.type = 'file';
+
+                    // Invisible input to hold required validation since file gets uploaded immediately
+                    const hiddenReq = document.createElement('input');
+                    hiddenReq.type = 'text';
+                    hiddenReq.name = field.label;
+                    hiddenReq.style.opacity = '0';
+                    hiddenReq.style.position = 'absolute';
+                    hiddenReq.style.height = '0';
+                    hiddenReq.style.width = '0';
+                    if (field.is_required) hiddenReq.required = true;
+
+                    const fileNameDisp = document.createElement('div');
+                    fileNameDisp.className = 'file-name';
+
+                    fileIn.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        btn.innerHTML = "Uploading...";
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        try {
+                            const res = await fetch(`${API_BASE}/form-builder/forms/upload`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                                fileUploads[field.label] = data.url;
+                                btn.innerHTML = "File Uploaded";
+                                fileNameDisp.textContent = file.name;
+                                hiddenReq.value = data.url; // Satisfy required field
+                            } else {
+                                showToast(data.detail || "Upload failed", true);
+                                btn.innerHTML = "Choose File";
+                            }
+                        } catch (err) {
+                            showToast("Upload error", true);
+                            btn.innerHTML = "Choose File";
+                        }
+                    };
+
+                    wrapper.appendChild(btn);
+                    wrapper.appendChild(fileIn);
+
+                    inputWrapper.appendChild(wrapper);
+                    inputWrapper.appendChild(hiddenReq);
+                    inputWrapper.appendChild(fileNameDisp);
+                }
+
+                card.appendChild(inputWrapper);
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('dynamic-form').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('submit-btn');
+            const txt = document.getElementById('submit-text');
+            const ldr = document.getElementById('submit-loader');
+
+            btn.disabled = true;
+            txt.style.display = 'none';
+            ldr.style.display = 'block';
+
+            // Collect answers
+            const formData = new FormData(e.target);
+            const answers = {};
+
+            for (const [key, value] of formData.entries()) {
+                // If it's a checkbox array (name ends in [])
+                if (key.endsWith('[]')) {
+                    const cleanKey = key.slice(0, -2);
+                    if (!answers[cleanKey]) answers[cleanKey] = [];
+                    answers[cleanKey].push(value);
+                } else {
+                    // For files, we use the uploaded URL stored in fileUploads (or fallback to hidden input)
+                    if (fileUploads[key]) {
+                        answers[key] = fileUploads[key];
+                    } else {
+                        answers[key] = value;
+                    }
+                }
+            }
+
+            // Also merge any file uploads that weren't caught by FormData
+            Object.keys(fileUploads).forEach(k => {
+                if (!answers[k]) answers[k] = fileUploads[k];
+            });
+
+            const respEmail = answers["respondent_email"];
+            delete answers["respondent_email"];
+
+            const payload = {
+                respondent_email: respEmail || answers["Email"] || answers["Email Address"] || "Anonymous",
+                answers: answers
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/form-builder/forms/${formId}/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    document.getElementById('dynamic-form').style.display = 'none';
+                    document.getElementById('success-state').style.display = 'block';
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || "Submission failed", true);
+                    btn.disabled = false;
+                    txt.style.display = 'block';
+                    ldr.style.display = 'none';
+                }
+            } catch (err) {
+                showToast("Network error", true);
+                btn.disabled = false;
+                txt.style.display = 'block';
+                ldr.style.display = 'none';
+            }
+        };
+
+        init();
+    </script>
+</body>
+
+</html>
