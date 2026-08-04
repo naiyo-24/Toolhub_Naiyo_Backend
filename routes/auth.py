@@ -145,3 +145,20 @@ def update_profile(
     db.refresh(current_user)
     
     return UserResponse.from_orm(current_user)
+
+from schemas.auth import DeleteAccountRequest
+from models.account_deletion import AccountDeletionRequest
+
+@router.post("/delete-account")
+def request_account_deletion(
+    request: DeleteAccountRequest,
+    db: Session = Depends(get_db)
+):
+    deletion_request = AccountDeletionRequest(
+        email=request.email,
+        reason=request.reason
+    )
+    db.add(deletion_request)
+    db.commit()
+    
+    return {"status": "success", "message": "Account deletion request received."}

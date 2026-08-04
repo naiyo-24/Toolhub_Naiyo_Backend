@@ -44,3 +44,7 @@ class ProfileUpdateRequest(BaseModel):
     account_number: Optional[str] = None
     ifsc_code: Optional[str] = None
     pricing_mode: Optional[str] = None
+
+class DeleteAccountRequest(BaseModel):
+    email: str
+    reason: Optional[str] = None
