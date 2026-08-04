@@ -10,6 +10,7 @@ import models.tool  # Import all models here
 import models.business
 import models.forms
 import models.user
+import models.contact
 
 config = context.config
 

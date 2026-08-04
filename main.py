@@ -7,6 +7,7 @@ import models.tool  # Import models so Base.metadata knows about them
 import models.user
 import models.business
 import models.forms
+import models.contact
 import os
 
 from sqlalchemy import text
@@ -132,6 +133,7 @@ from routes.productivity_tools import router as productivity_tools_router
 from routes.travel_tools import router as travel_tools_router
 from routes.form_tools import router as form_tools_router
 from routes.auth import router as auth_router
+from routes.contact import router as contact_router
 
 app.include_router(student_tools.router)
 app.include_router(docuforge_router, prefix="/docuforge", tags=["DocuForge"])
@@ -143,6 +145,7 @@ app.include_router(productivity_tools_router, prefix="/productivity-tools", tags
 app.include_router(travel_tools_router, prefix="/travel-tools", tags=["Travel Tools"])
 app.include_router(form_tools_router, prefix="/form-builder", tags=["Form Builder"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(contact_router, prefix="/contact", tags=["Contact"])
 
 @app.get("/")
 def read_root():
