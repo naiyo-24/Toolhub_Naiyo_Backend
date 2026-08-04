@@ -5,7 +5,6 @@ from models.contact import ContactMessage
 from schemas.contact import ContactMessageCreate, ContactMessageResponse
 
 router = APIRouter(
-    prefix="/contact",
     tags=["Contact"]
 )
 
