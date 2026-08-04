@@ -45,3 +45,10 @@ test.db
 # SQLite
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
+
+# Secrets / Configs
+secret.json
+client_secrets.json
+credentials.json
