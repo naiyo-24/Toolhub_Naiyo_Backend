@@ -7,7 +7,7 @@ load_dotenv()
 
 # We use the provided credentials: user=postgress, password=password, db=postgres
 # Adjust 'postgres' database name if you create a specific one like 'toolhub'
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost/toolhub_db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@db/toolhub_db")
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

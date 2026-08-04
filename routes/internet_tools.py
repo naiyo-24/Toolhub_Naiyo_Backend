@@ -102,7 +102,6 @@ def validate_email(req: EmailValidateRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 import geoip2.database
-from playwright.async_api import async_playwright
 import os
 
 @router.get("/ip/lookup")
