@@ -280,6 +280,7 @@ async def image_to_pdf(images: List[UploadFile] = File(...)):
 import subprocess
 import tempfile
 import os
+import uuid
 
 def convert_with_libreoffice(input_path: str, output_dir: str):
     # Mac LibreOffice binary path
@@ -288,8 +289,11 @@ def convert_with_libreoffice(input_path: str, output_dir: str):
         # Fallback to standard linux/brew path if they symlinked it
         libreoffice_path = "libreoffice"
         
+    env_dir = f"file:///tmp/LibreOffice_Conversion_{uuid.uuid4().hex}"
+        
     cmd = [
         libreoffice_path,
+        f"-env:UserInstallation={env_dir}",
         "--headless",
         "--convert-to",
         "pdf",
@@ -464,23 +468,36 @@ async def watermark_pdf(
             wm_img = Image.open(BytesIO(wm_bytes)).convert("RGBA")
     elif watermark_text:
         # Create a text watermark image
-        txt_img = Image.new("RGBA", (2000, 1000), (255, 255, 255, 0))
+        txt_img = Image.new("RGBA", (3000, 3000), (255, 255, 255, 0))
         d_txt = ImageDraw.Draw(txt_img)
         
-        try:
-            # Try to load a nice font (macOS/Linux friendly fallbacks)
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 200)
-        except:
+        font = None
+        font_paths = [
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial.ttf",
+            "arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        ]
+        for path in font_paths:
             try:
-                font = ImageFont.truetype("arial.ttf", 200)
+                font = ImageFont.truetype(path, 200)
+                break
             except:
-                font = ImageFont.load_default()
+                continue
+                
+        if font is None:
+            font = ImageFont.load_default()
                 
         # Draw text center
-        # fill with gray and some alpha, though we also apply alpha later
-        d_txt.text((1000, 500), watermark_text, fill=(100, 100, 100, 255), font=font, anchor="mm")
+        d_txt.text((1500, 1500), watermark_text, fill=(100, 100, 100, 255), font=font, anchor="mm")
         
-        # Rotate text diagonally (45 degrees) and crop bounding box
+        # Crop to the actual text bounding box so it scales properly
+        bbox = txt_img.getbbox()
+        if bbox:
+            txt_img = txt_img.crop(bbox)
+            
+        # Rotate text diagonally (45 degrees) and expand
         wm_img = txt_img.rotate(45, expand=True)
     else:
         raise HTTPException(status_code=400, detail="Must provide either watermark_image or watermark_text")
