@@ -78,7 +78,7 @@ def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
         return AuthResponse(
             access_token=access_token,
             token_type="bearer",
-            user=UserResponse.from_orm(user)
+            user=UserResponse.model_validate(user)
         )
 
     except ValueError as e:
@@ -96,7 +96,7 @@ def mock_login(db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
     access_token = create_access_token(data={"sub": user.email, "id": user.id})
-    return AuthResponse(access_token=access_token, token_type="bearer", user=UserResponse.from_orm(user))
+    return AuthResponse(access_token=access_token, token_type="bearer", user=UserResponse.model_validate(user))
 
 from fastapi.security import OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/google")
@@ -119,7 +119,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def get_profile(
     current_user: User = Depends(get_current_user)
 ):
-    return UserResponse.from_orm(current_user)
+    return UserResponse.model_validate(current_user)
 
 @router.put("/profile", response_model=UserResponse)
 def update_profile(
@@ -144,7 +144,7 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     
-    return UserResponse.from_orm(current_user)
+    return UserResponse.model_validate(current_user)
 
 from schemas.auth import DeleteAccountRequest
 from models.account_deletion import AccountDeletionRequest

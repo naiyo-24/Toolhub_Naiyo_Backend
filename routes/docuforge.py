@@ -105,10 +105,10 @@ async def cover_letter(resume: UploadFile = File(...), job_description: str = Fo
 async def ocr_scanner(image: UploadFile = File(...)):
     image_bytes = await image.read()
     mime = mimetypes.guess_type(image.filename)[0] or "image/jpeg"
-    file_uri = upload_to_gemini(image_bytes, image.filename, mime)
-    
-    prompt = "Extract all the text from this image precisely as it appears. Preserve the formatting as best as possible."
-    return {"extracted_text": generate_ai_response(prompt, file_uri=file_uri)}
+    # file_uri = upload_to_gemini(image_bytes, image.filename, mime)
+    # prompt = "Extract all the text from this image precisely as it appears. Preserve the formatting as best as possible."
+    # return {"extracted_text": generate_ai_response(prompt, file_uri=file_uri)}
+    return {"extracted_text": "OCR processing via Google ML Kit should be handled directly on the frontend (client-side). Backend OCR is disabled as per user request."}
 
 from fastapi.responses import StreamingResponse
 from pypdf import PdfReader, PdfWriter
@@ -635,3 +635,386 @@ async def digital_sign(file: UploadFile = File(...), signature_image: UploadFile
     writer.write(out_stream)
     out_stream.seek(0)
     return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=signed.pdf"})
+
+@router.post("/pdf-resize")
+async def pdf_resize(file: UploadFile = File(...), size: str = Form("A4")):
+    sizes = {
+        "A1": (1684, 2384),
+        "A2": (1191, 1684),
+        "A3": (842, 1191),
+        "A4": (595.28, 841.89),
+        "A5": (420, 595),
+        "B3": (1001, 1417),
+        "B4": (709, 1001),
+        "B5": (499, 709),
+        "LETTER": (612, 792),
+        "NOTE": (540, 720),
+        "LEGAL": (612, 1008),
+        "TABLOID": (792, 1224),
+        "EXECUTIVE": (522, 756),
+        "POSTCARD": (283, 416)
+    }
+    
+    target_size = sizes.get(size.upper())
+    if not target_size:
+        raise HTTPException(status_code=400, detail=f"Invalid size: {size}")
+        
+    reader = PdfReader(BytesIO(await file.read()))
+    writer = PdfWriter()
+    
+    for page in reader.pages:
+        page.scale_to(width=target_size[0], height=target_size[1])
+        writer.add_page(page)
+        
+    out_stream = BytesIO()
+    writer.write(out_stream)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=resized.pdf"})
+
+@router.post("/pdf-organize")
+async def pdf_organize(file: UploadFile = File(...), rotations: str = Form("{}"), deletions: str = Form("")):
+    import json
+    try:
+        rot_dict = json.loads(rotations)
+    except:
+        rot_dict = {}
+        
+    del_set = set([int(x.strip()) for x in deletions.split(",") if x.strip().isdigit()])
+    
+    reader = PdfReader(BytesIO(await file.read()))
+    writer = PdfWriter()
+    
+    for i, page in enumerate(reader.pages):
+        if i in del_set:
+            continue
+            
+        str_i = str(i)
+        if str_i in rot_dict:
+            page.rotate(int(rot_dict[str_i]))
+            
+        writer.add_page(page)
+        
+    out_stream = BytesIO()
+    writer.write(out_stream)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=organized.pdf"})
+
+@router.post("/pdf-add-images")
+async def pdf_add_images(pdf_file: UploadFile = File(...), images: List[UploadFile] = File(...)):
+    reader = PdfReader(BytesIO(await pdf_file.read()))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+        
+    for img_file in images:
+        img_bytes = await img_file.read()
+        img = Image.open(BytesIO(img_bytes)).convert("RGB")
+        img_pdf = BytesIO()
+        img.save(img_pdf, format="PDF")
+        img_pdf.seek(0)
+        img_reader = PdfReader(img_pdf)
+        writer.add_page(img_reader.pages[0])
+        
+    out_stream = BytesIO()
+    writer.write(out_stream)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=appended.pdf"})
+
+@router.post("/pdf-protect")
+async def pdf_protect(
+    file: UploadFile = File(...), 
+    password: str = Form(""), # Legacy fallback
+    user_password: str = Form(""),
+    owner_password: str = Form("")
+):
+    actual_user_pwd = user_password or password
+    
+    if not actual_user_pwd and not owner_password:
+        raise HTTPException(status_code=400, detail="Must provide at least one password to lock the PDF.")
+        
+    actual_owner_pwd = owner_password or actual_user_pwd
+
+    reader = PdfReader(BytesIO(await file.read()))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+        
+    writer.encrypt(user_password=actual_user_pwd, owner_password=actual_owner_pwd)
+    out_stream = BytesIO()
+    writer.write(out_stream)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=protected.pdf"})
+
+@router.post("/pdf-unlock")
+async def pdf_unlock(file: UploadFile = File(...), password: str = Form("")):
+    reader = PdfReader(BytesIO(await file.read()))
+    if not reader.is_encrypted:
+        raise HTTPException(status_code=400, detail="PDF is not encrypted.")
+        
+    # First try an empty password to automatically bypass Owner/Permissions locks
+    if not reader.decrypt(""):
+        # If empty fails, a User Password is required. Try the provided password.
+        if not password or not reader.decrypt(password):
+            raise HTTPException(status_code=401, detail="Incorrect password. A user password is required to open this file.")
+
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+        
+    out_stream = BytesIO()
+    writer.write(out_stream)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=unlocked.pdf"})
+
+from fpdf import FPDF
+
+@router.post("/text-to-pdf")
+async def text_to_pdf(text_content: str = Form(...)):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, txt=text_content)
+    
+    out_bytes = pdf.output(dest='S')
+    if isinstance(out_bytes, str):
+        out_bytes = out_bytes.encode('latin-1', 'replace')
+        
+    return StreamingResponse(BytesIO(out_bytes), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=text.pdf"})
+
+import cv2
+import numpy as np
+
+@router.post("/detect-edges")
+async def detect_edges(image: UploadFile = File(...)):
+    img_bytes = await image.read()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    if img is None:
+        raise HTTPException(status_code=400, detail="Invalid image file.")
+        
+    ratio = img.shape[0] / 500.0
+    orig = img.copy()
+    image_resized = cv2.resize(img, (int(img.shape[1] / ratio), 500))
+    
+    gray = cv2.cvtColor(image_resized, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    edged = cv2.Canny(gray, 75, 200)
+    
+    cnts, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+    
+    screenCnt = None
+    for c in cnts:
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        if len(approx) == 4:
+            screenCnt = approx
+            break
+            
+    if screenCnt is None:
+        h, w = orig.shape[:2]
+        corners = [{"x": 0, "y": 0}, {"x": w, "y": 0}, {"x": w, "y": h}, {"x": 0, "y": h}]
+    else:
+        screenCnt = (screenCnt.reshape(4, 2) * ratio).astype(int)
+        
+        def order_points(pts):
+            rect = np.zeros((4, 2), dtype="float32")
+            s = pts.sum(axis=1)
+            rect[0] = pts[np.argmin(s)]
+            rect[2] = pts[np.argmax(s)]
+            diff = np.diff(pts, axis=1)
+            rect[1] = pts[np.argmin(diff)]
+            rect[3] = pts[np.argmax(diff)]
+            return rect
+            
+        rect = order_points(screenCnt)
+        corners = [
+            {"x": int(rect[0][0]), "y": int(rect[0][1])},
+            {"x": int(rect[1][0]), "y": int(rect[1][1])},
+            {"x": int(rect[2][0]), "y": int(rect[2][1])},
+            {"x": int(rect[3][0]), "y": int(rect[3][1])},
+        ]
+        
+    return {"corners": corners, "width": img.shape[1], "height": img.shape[0]}
+
+@router.post("/process-scan-cropped")
+async def process_scan_cropped(
+    image: UploadFile = File(...),
+    corners: str = Form(...),
+    scan_type: str = Form("magic_color")
+):
+    import json
+    img_bytes = await image.read()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    try:
+        pts = json.loads(corners)
+        pts_np = np.array([[p["x"], p["y"]] for p in pts], dtype="float32")
+    except:
+        raise HTTPException(status_code=400, detail="Invalid corners format")
+        
+    (tl, tr, br, bl) = pts_np
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+    
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+    
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]], dtype="float32")
+        
+    M = cv2.getPerspectiveTransform(pts_np, dst)
+    warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+    
+    warped_rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(warped_rgb)
+    
+    if scan_type == "magic_color":
+        enhancer = ImageEnhance.Contrast(pil_img)
+        pil_img = enhancer.enhance(1.8)
+        enhancer = ImageEnhance.Brightness(pil_img)
+        pil_img = enhancer.enhance(1.1)
+        enhancer = ImageEnhance.Color(pil_img)
+        pil_img = enhancer.enhance(1.5)
+    elif scan_type == "black_white":
+        pil_img = pil_img.convert("L")
+        pil_img = pil_img.point(lambda x: 0 if x < 128 else 255, '1')
+        pil_img = pil_img.convert("RGB")
+    elif scan_type == "grayscale":
+        pil_img = pil_img.convert("L").convert("RGB")
+        
+    out_stream = BytesIO()
+    pil_img.save(out_stream, format="JPEG", quality=90)
+    out_stream.seek(0)
+    return StreamingResponse(out_stream, media_type="image/jpeg", headers={"Content-Disposition": "attachment; filename=cropped_scan.jpg"})
+
+
+@router.post("/unlock-pdf")
+async def unlock_pdf(file: UploadFile = File(...), password: str = Form("")):
+    try:
+        reader = PdfReader(BytesIO(await file.read()))
+        if reader.is_encrypted:
+            reader.decrypt(password)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        out_stream = BytesIO()
+        writer.write(out_stream)
+        out_stream.seek(0)
+        return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=unlocked.pdf"})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to unlock PDF: {str(e)}")
+
+@router.post("/pdf-to-text")
+async def pdf_to_text(file: UploadFile = File(...)):
+    try:
+        reader = PdfReader(BytesIO(await file.read()))
+        text = ""
+        for page in reader.pages:
+            extracted = page.extract_text()
+            if extracted:
+                text += extracted + "\n"
+        return {"extracted_text": text}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract text: {str(e)}")
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import simpleSplit
+
+@router.post("/text-to-pdf")
+async def text_to_pdf(text: str = Form(...)):
+    try:
+        out_stream = BytesIO()
+        c = canvas.Canvas(out_stream, pagesize=letter)
+        width, height = letter
+        
+        lines = text.split('\n')
+        y = height - 40
+        for line in lines:
+            wrapped = simpleSplit(line, 'Helvetica', 12, width - 80)
+            for w_line in wrapped:
+                if y < 40:
+                    c.showPage()
+                    y = height - 40
+                c.drawString(40, y, w_line)
+                y -= 15
+        c.save()
+        out_stream.seek(0)
+        return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=document.pdf"})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create PDF: {str(e)}")
+
+from reportlab.lib.pagesizes import A1, A2, A3, A4, A5, B3, B4, B5, letter, legal
+
+PAGE_SIZES = {
+    "A1": A1,
+    "A2": A2,
+    "A3": A3,
+    "A4": A4,
+    "A5": A5,
+    "B3": B3,
+    "B4": B4,
+    "B5": B5,
+    "LETTER": letter,
+    "LEGAL": legal,
+    "TABLOID": (11 * 72.0, 17 * 72.0)
+}
+
+@router.post("/modify-pages")
+async def modify_pages(
+    file: UploadFile = File(...),
+    delete_pages: str = Form(""),
+    rotate_pages: str = Form(""),
+    rotation_angle: int = Form(90),
+    page_size: str = Form("auto")
+):
+    try:
+        reader = PdfReader(BytesIO(await file.read()))
+        writer = PdfWriter()
+        
+        def parse_pages(page_str, max_pages):
+            pages = set()
+            for part in page_str.split(','):
+                part = part.strip()
+                if not part: continue
+                if '-' in part:
+                    try:
+                        start, end = part.split('-')
+                        if start.isdigit() and end.isdigit():
+                            pages.update(range(int(start) - 1, int(end)))
+                    except: pass
+                elif part.isdigit():
+                    pages.add(int(part) - 1)
+            return {p for p in pages if 0 <= p < max_pages}
+
+        to_delete = parse_pages(delete_pages, len(reader.pages))
+        to_rotate = parse_pages(rotate_pages, len(reader.pages))
+        
+        for i, page in enumerate(reader.pages):
+            if i in to_delete:
+                continue
+            if i in to_rotate:
+                page.transfer_rotation_to_content()
+                page.rotate(rotation_angle)
+            
+            if page_size != "auto" and page_size.upper() in PAGE_SIZES:
+                target_w, target_h = PAGE_SIZES[page_size.upper()]
+                page.scale_to(target_w, target_h)
+                
+            writer.add_page(page)
+            
+        out_stream = BytesIO()
+        writer.write(out_stream)
+        out_stream.seek(0)
+        return StreamingResponse(out_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=modified.pdf"})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to modify PDF: {str(e)}")
+
