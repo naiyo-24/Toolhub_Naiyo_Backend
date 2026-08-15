@@ -1,6 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import easyocr
+import io
+from PIL import Image
+
+# Load the model in memory once (Production optimized)
+reader = easyocr.Reader(['en'], gpu=False)
+
 from db import engine, Base
 from routes import tools, daily_utility, internet_tools, file_tools, ai_tools, student_tools
 import models.tool  # Import models so Base.metadata knows about them
@@ -146,6 +153,21 @@ app.include_router(travel_tools_router, prefix="/travel-tools", tags=["Travel To
 app.include_router(form_tools_router, prefix="/form-builder", tags=["Form Builder"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(contact_router, prefix="/contact", tags=["Contact"])
+
+@app.post("/extract-text", tags=["OCR"])
+async def extract_text(file: UploadFile = File(...)):
+    # Read the image bytes from the mobile app
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes))
+    
+    # Run EasyOCR
+    result = reader.readtext(image_bytes, detail=0)
+    
+    # Join the detected text blocks into a single string
+    extracted_string = "\n".join(result)
+    
+    return {"text": extracted_string}
+
 
 @app.get("/")
 def read_root():

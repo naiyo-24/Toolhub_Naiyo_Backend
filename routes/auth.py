@@ -162,3 +162,11 @@ def request_account_deletion(
     db.commit()
     
     return {"status": "success", "message": "Account deletion request received."}
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user)):
+    # Since JWTs are stateless, we simply acknowledge the request here.
+    # The actual logout happens by clearing the token on the frontend.
+    # In the future, this can be used to add the token to a blacklist.
+    return {"status": "success", "message": "Successfully logged out"}
+
