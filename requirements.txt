@@ -9,7 +9,7 @@ firebase-admin==6.4.0
 
 qrcode==7.4.2
 python-barcode==0.15.1
-pillow==10.3.0
+pillow>=12.2.0
 opencv-python-headless==4.10.0.84
 zxing-cpp==3.1.0
 dnspython==2.6.1

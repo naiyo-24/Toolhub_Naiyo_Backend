@@ -1018,3 +1018,191 @@ async def modify_pages(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to modify PDF: {str(e)}")
 
+@router.post("/pdf-to-excel")
+async def pdf_to_excel(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+    import io
+    import pandas as pd
+    import pdfplumber
+    
+    try:
+        pdf_bytes = await file.read()
+        excel_buffer = io.BytesIO()
+        
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                table_found = False
+                for i, page in enumerate(pdf.pages):
+                    tables = page.extract_tables()
+                    
+                    # Fallback for borderless tables
+                    if not tables:
+                        tables = page.extract_tables(table_settings={
+                            "vertical_strategy": "text", 
+                            "horizontal_strategy": "text"
+                        })
+                        
+                    for j, table in enumerate(tables):
+                        # Filter out empty rows or None values
+                        clean_table = [[cell for cell in row] for row in table if any(cell for cell in row)]
+                        if len(clean_table) > 1:
+                            df = pd.DataFrame(clean_table[1:], columns=clean_table[0] if clean_table[0] else None)
+                            df.to_excel(writer, sheet_name=f'Page_{i+1}_Table_{j+1}', index=False)
+                            table_found = True
+                        elif len(clean_table) == 1:
+                            df = pd.DataFrame(clean_table)
+                            df.to_excel(writer, sheet_name=f'Page_{i+1}_Table_{j+1}', index=False, header=False)
+                            table_found = True
+                            
+                if not table_found:
+                    for i, page in enumerate(pdf.pages):
+                        text = page.extract_text()
+                        if text:
+                            lines = [line.split() for line in text.split("\n")]
+                            df = pd.DataFrame(lines)
+                            df.to_excel(writer, sheet_name=f"Page_{i+1}_Text", index=False, header=False)
+                            table_found = True
+                            
+                if not table_found:
+                    pd.DataFrame([["No data detected in PDF"]]).to_excel(writer, sheet_name="Result", index=False, header=False)
+                    
+        excel_buffer.seek(0)
+        
+        return StreamingResponse(
+            excel_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.xlsx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF to Excel failed: {str(e)}")
+
+@router.post("/pdf-to-ppt")
+async def pdf_to_ppt(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+    import io
+    from pdf2image import convert_from_bytes
+    from pptx import Presentation
+    from pptx.util import Inches
+    
+    try:
+        pdf_bytes = await file.read()
+        
+        # Convert PDF to images
+        images = convert_from_bytes(pdf_bytes)
+        
+        prs = Presentation()
+        # Use blank slide layout
+        blank_slide_layout = prs.slide_layouts[6]
+        
+        for img in images:
+            slide = prs.slides.add_slide(blank_slide_layout)
+            
+            img_buffer = io.BytesIO()
+            img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            
+            left = top = Inches(0)
+            # Add image to slide, fitting the slide dimensions
+            slide.shapes.add_picture(img_buffer, left, top, width=prs.slide_width, height=prs.slide_height)
+            
+        ppt_buffer = io.BytesIO()
+        prs.save(ppt_buffer)
+        ppt_buffer.seek(0)
+        
+        return StreamingResponse(
+            ppt_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.pptx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF to PPT failed: {str(e)}")
+
+
+@router.post("/excel-to-csv")
+async def excel_to_csv(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith((".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="File must be an Excel file")
+    import pandas as pd
+    import io
+    try:
+        content = await file.read()
+        df = pd.read_excel(io.BytesIO(content))
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        return StreamingResponse(
+            iter([csv_buffer.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit(".", 1)[0]}.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/csv-to-excel")
+async def csv_to_excel(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    import pandas as pd
+    import io
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content))
+        excel_buffer = io.BytesIO()
+        df.to_excel(excel_buffer, index=False)
+        excel_buffer.seek(0)
+        return StreamingResponse(
+            excel_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit(".", 1)[0]}.xlsx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/csv-to-pdf")
+async def csv_to_pdf(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    import pandas as pd
+    import io
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+    from reportlab.lib import colors
+
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content))
+        
+        # Convert DataFrame to a list of lists, including the header row
+        data = [df.columns.values.astype(str).tolist()] + df.astype(str).values.tolist()
+        
+        pdf_buffer = io.BytesIO()
+        # Use landscape to better fit wide CSV tables
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(letter), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+        
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#333333")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#f8f9fa")),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+        ]))
+        
+        doc.build([t])
+        pdf_buffer.seek(0)
+        
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.pdf"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
