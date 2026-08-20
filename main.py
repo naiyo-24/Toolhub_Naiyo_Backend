@@ -1,12 +1,8 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import easyocr
 import io
 from PIL import Image
-
-# Load the model in memory once (Production optimized)
-reader = easyocr.Reader(['en'], gpu=False)
 
 from db import engine, Base
 from routes import tools, daily_utility, internet_tools, file_tools, ai_tools, student_tools
@@ -71,6 +67,17 @@ except Exception:
 try:
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE products ADD COLUMN gst_id INTEGER REFERENCES gst_master(id);"))
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN org_type VARCHAR;"))
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN org_name VARCHAR;"))
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN branch_name VARCHAR;"))
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN city VARCHAR;"))
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN state_region VARCHAR;"))
+        conn.execute(text("ALTER TABLE banker_profiles ADD COLUMN loan_types JSON;"))
 except Exception:
     pass
 
@@ -141,6 +148,18 @@ from routes.travel_tools import router as travel_tools_router
 from routes.form_tools import router as form_tools_router
 from routes.auth import router as auth_router
 from routes.contact import router as contact_router
+from routes.banker import router as banker_router
+from routes.organizations import router as organizations_router
+from routes.customers import router as customers_router
+from routes.cases import router as cases_router
+from routes.documents import router as documents_router
+from routes.ocr import router as ocr_router
+from routes.verification import router as verification_router
+from routes.analysis import router as analysis_router
+from routes.calculations import router as calculations_router
+from routes.tasks import router as tasks_router
+from routes.timeline import router as timeline_router
+from routes.reports import router as reports_router
 
 app.include_router(student_tools.router)
 app.include_router(docuforge_router, prefix="/docuforge", tags=["DocuForge"])
@@ -153,20 +172,67 @@ app.include_router(travel_tools_router, prefix="/travel-tools", tags=["Travel To
 app.include_router(form_tools_router, prefix="/form-builder", tags=["Form Builder"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(contact_router, prefix="/contact", tags=["Contact"])
+app.include_router(banker_router, prefix="/api/v1/banker", tags=["Banker Onboarding"])
+app.include_router(organizations_router, prefix="/api/v1/organizations", tags=["Organizations"])
+app.include_router(customers_router, prefix="/api/v1/customers", tags=["Customers"])
+app.include_router(cases_router, prefix="/api/v1/cases", tags=["Loan Cases"])
+app.include_router(documents_router, prefix="/api/v1/documents", tags=["Documents"])
+app.include_router(ocr_router, prefix="/api/v1/ocr", tags=["OCR"])
+app.include_router(verification_router, prefix="/api/v1/verification", tags=["Verification"])
+app.include_router(analysis_router, prefix="/api/v1/analysis", tags=["Financial Analysis"])
+app.include_router(calculations_router, prefix="/api/v1/calculations", tags=["Loan Calculations"])
+app.include_router(tasks_router, prefix="/api/v1/tasks", tags=["Tasks"])
+app.include_router(timeline_router, prefix="/api/v1/timeline", tags=["Timeline"])
+app.include_router(reports_router, prefix="/api/v1/reports", tags=["Reports"])
 
 @app.post("/extract-text", tags=["OCR"])
 async def extract_text(file: UploadFile = File(...)):
-    # Read the image bytes from the mobile app
-    image_bytes = await file.read()
-    image = Image.open(io.BytesIO(image_bytes))
+    import re
+    import pytesseract
+    from pdf2image import convert_from_bytes
+    from PIL import Image
     
-    # Run EasyOCR
-    result = reader.readtext(image_bytes, detail=0)
+    file_bytes = await file.read()
+    extracted_text = ""
     
-    # Join the detected text blocks into a single string
-    extracted_string = "\n".join(result)
+    if file.filename.lower().endswith('.pdf'):
+        # Convert PDF to images
+        try:
+            images = convert_from_bytes(file_bytes, first_page=1, last_page=1)
+            for img in images:
+                text = pytesseract.image_to_string(img)
+                extracted_text += text + "\n"
+        except Exception as e:
+            return {"error": f"Failed to process PDF: {str(e)}"}
+    else:
+        # Run PyTesseract on image
+        try:
+            image = Image.open(io.BytesIO(file_bytes))
+            extracted_text = pytesseract.image_to_string(image)
+        except Exception as e:
+            return {"error": f"Failed to process Image: {str(e)}"}
+            
+    # Extract structured data using basic Regex
+    pan_match = re.search(r'\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b', extracted_text)
+    pan = pan_match.group(0) if pan_match else None
     
-    return {"text": extracted_string}
+    aadhaar_match = re.search(r'\b\d{4}\s?\d{4}\s?\d{4}\b', extracted_text)
+    aadhaar = aadhaar_match.group(0) if aadhaar_match else None
+    
+    dob_match = re.search(r'\b(\d{2}[/-]\d{2}[/-]\d{4})\b', extracted_text)
+    dob = dob_match.group(1) if dob_match else None
+    
+    # 15-digit GSTIN (e.g. 22AAAAA0000A1Z5)
+    gst_match = re.search(r'\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}\b', extracted_text)
+    gst_number = gst_match.group(0) if gst_match else None
+    
+    return {
+        "text": extracted_text.strip(),
+        "pan": pan,
+        "aadhaar": aadhaar,
+        "dob": dob,
+        "gst_number": gst_number
+    }
 
 
 @app.get("/")

@@ -1,41 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models.user import User
-from schemas.auth import GoogleLoginRequest, AuthResponse, UserResponse, ProfileUpdateRequest
-from google.oauth2 import id_token
+from models.user import User, Session as AppSession
+from schemas.auth import GoogleLoginRequest, AuthResponse, UserResponse, ProfileUpdateRequest, RefreshRequest, TokenResponse
+from core.security import create_access_token, create_refresh_token, get_password_hash, verify_password
 from google.auth.transport import requests
+from google.oauth2 import id_token
 import os
 import jwt
 from datetime import datetime, timedelta
 
 router = APIRouter()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-me")
-JWT_ALGORITHM = "HS256"
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=7)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
 @router.post("/google", response_model=AuthResponse)
+@router.post("/login/google", response_model=AuthResponse)
 def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
     client_id = os.getenv("GOOGLE_CLIENT_ID", "129091157986-92ogmcbg3aqpbr00n80oern2r90saps6.apps.googleusercontent.com")
     
+    actual_token = request.id_token or request.token
+    if not actual_token:
+        raise HTTPException(status_code=422, detail="Missing id_token or token in request body")
+        
     try:
         if client_id:
             # Verify the token with Google
-            idinfo = id_token.verify_oauth2_token(request.id_token, requests.Request(), client_id)
+            idinfo = id_token.verify_oauth2_token(actual_token, requests.Request(), client_id)
         else:
             # For development without a Client ID, we can bypass verification
             # WARNING: Do not use this in production!
             # If no client ID is set, we just decode the JWT to get the email
             import json
             import base64
-            parts = request.id_token.split('.')
+            parts = actual_token.split('.')
             if len(parts) != 3:
                 raise ValueError("Invalid ID token format.")
             payload = parts[1]
@@ -73,17 +69,38 @@ def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
             db.commit()
 
         # Generate JWT
-        access_token = create_access_token(data={"sub": user.email, "id": user.id})
+        access_token = create_access_token(subject=user.id)
+        refresh_token = create_refresh_token(subject=user.id)
+        
+        # passlib's bcrypt is fundamentally broken with long strings in this version.
+        # We will use plain SHA-256 to hash the refresh token in the DB.
+        import hashlib
+        refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+
+        # Store session
+        user_session = AppSession(
+            user_id=user.id,
+            refresh_token_hash=refresh_token_hash,
+            device_name="Flutter App"
+        )
+        db.add(user_session)
+        db.commit()
 
         return AuthResponse(
             access_token=access_token,
             token_type="bearer",
-            user=UserResponse.model_validate(user)
+            user=UserResponse.model_validate(user),
+            refresh_token=refresh_token
         )
 
     except ValueError as e:
+        with open("token_error.log", "w") as f:
+            f.write(f"Google Token Error: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
     except Exception as e:
+        import traceback
+        with open("error.log", "w") as f:
+            f.write(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/mock", response_model=AuthResponse)
@@ -95,19 +112,48 @@ def mock_login(db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
-    access_token = create_access_token(data={"sub": user.email, "id": user.id})
+    access_token = create_access_token(subject=user.id)
     return AuthResponse(access_token=access_token, token_type="bearer", user=UserResponse.model_validate(user))
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
+    from jose import jwt, JWTError
+    from core.security import SECRET_KEY, ALGORITHM
+    try:
+        payload = jwt.decode(request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    # verify in db
+    user_sessions = db.query(AppSession).filter(AppSession.user_id == user_id, AppSession.revoked_at == None).all()
+    valid_session = None
+    for s in user_sessions:
+        import hashlib
+        token_hash = hashlib.sha256(request.refresh_token.encode()).hexdigest()
+        if token_hash == s.refresh_token_hash:
+            valid_session = s
+            break
+            
+    if not valid_session:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    access_token = create_access_token(subject=user_id)
+    return TokenResponse(access_token=access_token)
 
 from fastapi.security import OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/google")
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    from core.security import SECRET_KEY, ALGORITHM
+    from jose import jwt, JWTError
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id: int = payload.get("id")
-        if user_id is None:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    except jwt.PyJWTError:
+        user_id = int(user_id_str)
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         
     user = db.query(User).filter(User.id == user_id).first()

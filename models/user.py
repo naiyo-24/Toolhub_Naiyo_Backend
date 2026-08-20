@@ -24,3 +24,16 @@ class User(Base):
     pricing_mode = Column(String, default="INCLUSIVE") # INCLUSIVE or EXCLUSIVE
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True, nullable=False)
+    refresh_token_hash = Column(String, nullable=True)
+    device_id = Column(String, nullable=True)
+    device_name = Column(String, nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)

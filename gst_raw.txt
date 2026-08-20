@@ -1,0 +1,81 @@
+                                       raw_text                                       
+--------------------------------------------------------------------------------------
+ AnnexureA                                                                           +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+             GSTIN          19ASEPR2246P1Z3                                          +
+             LegalName      BIPLABKUMARROY                                           +
+                                                                                     +
+             TradeName,ifany R.B.ENTERPRISE                                          +
+                                                                                     +
+                                                                                     +
+             DetailsofAdditionalPlacesofBusiness                                     +
+                                                                                     +
+              TotalNumberofAdditionalPlacesofBusinessintheState 0                    +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                      AnnexureB      +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+                                                                                     +
+             GSTIN          19ASEPR2246P1Z3                                          +
+             LegalName      BIPLABKUMARROY                                           +
+                                                                                     +
+             TradeName,ifany R.B.ENTERPRISE                                          +
+                                                                                     +
+                                                                                     +
+           Detailsof Proprietor                                                      +
+                                                                                     +
+              1                Name            BIPLABKUMAR ROY                       +
+                               Designation/Status PROPRIETOR                         +
+                                                                                     +
+                               ResidentofState WestBengal
+(1 row)
+

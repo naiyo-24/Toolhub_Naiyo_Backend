@@ -12,6 +12,20 @@ import models.forms
 import models.user
 import models.contact
 import models.account_deletion
+import models.banker_profile
+import models.organization
+import models.customer
+import models.loan_case
+import models.document
+import models.ocr_result
+import models.verification
+import models.bank_statement
+import models.financial_analysis
+import models.loan_calculation
+import models.task
+import models.case_event
+import models.notification
+import models.report
 
 config = context.config
 
