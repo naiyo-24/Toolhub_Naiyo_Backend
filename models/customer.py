@@ -2,11 +2,13 @@ from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
+from utils.ids import generate_case_number, generate_customer_number
 
 class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_number = Column(String, unique=True, index=True, default=generate_customer_number)
     customer_type = Column(String, nullable=False) # e.g. INDIVIDUAL, BUSINESS
 
     full_name = Column(String, index=True, nullable=False)

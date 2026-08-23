@@ -4,7 +4,7 @@ from typing import List
 
 from schemas.tool import ToolCreate, ToolResponse
 from crud import tool as crud_tool
-from db import get_db
+from database import get_db
 
 router = APIRouter(
     prefix="/tools",

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text
-from db import Base
+from database import Base
 
 class Tool(Base):
     __tablename__ = "tools"

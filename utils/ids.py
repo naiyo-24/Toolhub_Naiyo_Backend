@@ -5,3 +5,8 @@ def generate_case_number():
     year = datetime.datetime.now().year
     random_part = random.randint(1, 999999)
     return f"LD-{year}-{random_part:06d}"
+
+def generate_customer_number():
+    year = datetime.datetime.now().year
+    random_part = random.randint(1, 999999)
+    return f"CUST-{year}-{random_part:06d}"

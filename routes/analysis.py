@@ -71,3 +71,23 @@ def update_financial_analysis(analysis_id: int, analysis_data: FinancialAnalysis
     db.commit()
     db.refresh(analysis)
     return analysis
+
+from schemas.analysis import RiskAnalysisResponse
+from utils.analysis_engine import run_analysis_engine
+
+@router.post("/case/{case_id}/evaluate", response_model=RiskAnalysisResponse)
+def evaluate_loan_case(case_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Runs the LoanDesk Analysis Engine v1.
+    Calculates FOIR, Proposed EMI, evaluates Risk Score, and determines Loan Eligibility.
+    """
+    loan_case = db.query(LoanCase).filter(LoanCase.id == case_id, LoanCase.banker_id == current_user.id).first()
+    if not loan_case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    try:
+        risk_analysis = run_analysis_engine(case_id, db)
+        return risk_analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

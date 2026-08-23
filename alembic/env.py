@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from db import Base
+from database import Base
 import models.tool  # Import all models here
 import models.business
 import models.forms

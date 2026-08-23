@@ -60,3 +60,30 @@ class FinancialAnalysisResponse(FinancialAnalysisBase):
 
     class Config:
         from_attributes = True
+
+class RiskAnalysisDetails(BaseModel):
+    recommended_offers: list[dict] = []
+    positive_factors: list[str] = []
+    risk_factors: list[str] = []
+    categories: dict = {}
+    graph_base64: Optional[str] = None
+
+class RiskAnalysisBase(BaseModel):
+    verified_monthly_income: Optional[float] = None
+    existing_emi: Optional[float] = None
+    proposed_emi: Optional[float] = None
+    foir_percentage: Optional[float] = None
+    risk_score: Optional[int] = None
+    risk_grade: Optional[str] = None
+    decision: Optional[str] = None
+    analysis_details: Optional[RiskAnalysisDetails] = None
+
+class RiskAnalysisResponse(RiskAnalysisBase):
+    id: int
+    case_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

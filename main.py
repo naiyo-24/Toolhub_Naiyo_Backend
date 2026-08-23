@@ -4,16 +4,32 @@ from fastapi.staticfiles import StaticFiles
 import io
 from PIL import Image
 
-from db import engine, Base
+from database import engine, Base
 from routes import tools, daily_utility, internet_tools, file_tools, ai_tools, student_tools
 import models.tool  # Import models so Base.metadata knows about them
 import models.user
 import models.business
 import models.forms
 import models.contact
+import models.organization
+import models.customer
+import models.loan_case
+import models.bank_statement
+import models.document
+import models.ocr_result
+import models.financial_analysis
+import models.risk_analysis
+import models.report
+import models.task
+import models.verification
 import os
 
 from sqlalchemy import text
+from logger_setup import setup_logger, LoguruMiddleware
+
+# Initialize custom logger
+logger = setup_logger()
+
 
 # Run automatic migrations for new columns
 try:
@@ -86,7 +102,7 @@ Base.metadata.create_all(bind=engine)
 
 # Seed GST Master
 from sqlalchemy.orm import Session
-from db import SessionLocal
+from database import SessionLocal
 from models.business import GSTMaster
 
 def seed_gst_master():
@@ -130,6 +146,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom logger middleware
+app.add_middleware(LoguruMiddleware)
+
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

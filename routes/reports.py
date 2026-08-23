@@ -42,9 +42,9 @@ def generate_case_summary_pdf(case_id: int, current_user: User = Depends(get_cur
     # Case Details
     elements.append(Paragraph("Case Overview", h2_style))
     case_data = [
-        ["Applicant Name", loan_case.applicant_name or "N/A"],
-        ["Loan Amount", f"Rs. {loan_case.loan_amount:,.2f}" if loan_case.loan_amount else "N/A"],
-        ["Product Type", loan_case.product_type or "N/A"],
+        ["Applicant Name", loan_case.customer_name or "N/A"],
+        ["Loan Amount", f"Rs. {loan_case.requested_amount:,.2f}" if loan_case.requested_amount else "N/A"],
+        ["Product Type", loan_case.loan_type or "N/A"],
         ["Status", loan_case.status or "N/A"],
         ["Created At", str(loan_case.created_at)[:10] if loan_case.created_at else "N/A"]
     ]
