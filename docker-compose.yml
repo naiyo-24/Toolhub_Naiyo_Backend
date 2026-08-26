@@ -23,7 +23,8 @@ services:
       PGADMIN_CONFIG_PROXY_X_FOR_COUNT: "1"
       PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
     ports:
-      - "8023:80"
+      # - "8023:80"
+      - "8027:80"
     depends_on:
       - db
     networks:
@@ -37,7 +38,8 @@ services:
     env_file:
       - .env
     ports:
-      - "8022:8022"
+      # - "8022:8022"
+      - "8026:8026"
     depends_on:
       - db
     networks:
