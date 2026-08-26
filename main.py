@@ -180,6 +180,7 @@ from routes.calculations import router as calculations_router
 from routes.tasks import router as tasks_router
 from routes.timeline import router as timeline_router
 from routes.reports import router as reports_router
+from routes.search import router as search_router
 
 app.include_router(student_tools.router)
 app.include_router(docuforge_router, prefix="/docuforge", tags=["DocuForge"])
@@ -192,18 +193,19 @@ app.include_router(travel_tools_router, prefix="/travel-tools", tags=["Travel To
 app.include_router(form_tools_router, prefix="/form-builder", tags=["Form Builder"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(contact_router, prefix="/contact", tags=["Contact"])
-app.include_router(banker_router, prefix="/api/v1/banker", tags=["Banker Onboarding"])
-app.include_router(organizations_router, prefix="/api/v1/organizations", tags=["Organizations"])
-app.include_router(customers_router, prefix="/api/v1/customers", tags=["Customers"])
-app.include_router(cases_router, prefix="/api/v1/cases", tags=["Loan Cases"])
-app.include_router(documents_router, prefix="/api/v1/documents", tags=["Documents"])
-app.include_router(ocr_router, prefix="/api/v1/ocr", tags=["OCR"])
-app.include_router(verification_router, prefix="/api/v1/verification", tags=["Verification"])
-app.include_router(analysis_router, prefix="/api/v1/analysis", tags=["Financial Analysis"])
-app.include_router(calculations_router, prefix="/api/v1/calculations", tags=["Loan Calculations"])
-app.include_router(tasks_router, prefix="/api/v1/tasks", tags=["Tasks"])
-app.include_router(timeline_router, prefix="/api/v1/timeline", tags=["Timeline"])
-app.include_router(reports_router, prefix="/api/v1/reports", tags=["Reports"])
+app.include_router(banker_router, prefix="/banker", tags=["Banker Onboarding"])
+app.include_router(organizations_router, prefix="/organizations", tags=["Organizations"])
+app.include_router(customers_router, prefix="/customers", tags=["Customers"])
+app.include_router(cases_router, prefix="/cases", tags=["Loan Cases"])
+app.include_router(documents_router, prefix="/documents", tags=["Documents"])
+app.include_router(ocr_router, prefix="/ocr", tags=["OCR"])
+app.include_router(verification_router, prefix="/verification", tags=["Verification"])
+app.include_router(analysis_router, prefix="/analysis", tags=["Financial Analysis"])
+app.include_router(calculations_router, prefix="/calculations", tags=["Loan Calculations"])
+app.include_router(tasks_router, prefix="/tasks", tags=["Tasks"])
+app.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
+app.include_router(reports_router, prefix="/reports", tags=["Reports"])
+app.include_router(search_router, prefix="/search", tags=["Search"])
 
 @app.post("/extract-text", tags=["OCR"])
 async def extract_text(file: UploadFile = File(...)):

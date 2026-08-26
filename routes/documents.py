@@ -94,7 +94,7 @@ def get_document_access(document_id: int, current_user: User = Depends(get_curre
     # In a real cloud setup, this would generate a signed URL.
     # For local server setup, we return an authenticated download route.
     # The Flutter app must append the Bearer token to this URL when downloading/viewing.
-    url = f"/api/v1/documents/download/{document_id}"
+    url = f"/documents/download/{document_id}"
     
     return DocumentAccessResponse(
         document_id=doc.id,
