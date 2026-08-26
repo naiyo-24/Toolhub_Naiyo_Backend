@@ -1,3 +1,4 @@
+from fastapi.responses import PlainTextResponse
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -260,3 +261,11 @@ async def extract_text(file: UploadFile = File(...)):
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Toolhub Naiyo API!"}
+
+@app.get("/ads.txt", response_class=PlainTextResponse)
+def get_ads_txt():
+    return "google.com, pub-8699813078861252, DIRECT, f08c47fec0942fa0"
+
+@app.get("/app-ads.txt", response_class=PlainTextResponse)
+def get_app_ads_txt():
+    return "google.com, pub-8699813078861252, DIRECT, f08c47fec0942fa0"
