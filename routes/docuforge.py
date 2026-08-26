@@ -1137,7 +1137,7 @@ async def excel_to_csv(file: UploadFile = File(...)):
         return StreamingResponse(
             iter([csv_buffer.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit(".", 1)[0]}.csv"}
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.csv"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1157,7 +1157,7 @@ async def csv_to_excel(file: UploadFile = File(...)):
         return StreamingResponse(
             excel_buffer,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit(".", 1)[0]}.xlsx"}
+            headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.xlsx"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
