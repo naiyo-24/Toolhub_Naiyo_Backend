@@ -51,9 +51,14 @@ class UserResponse(BaseModel):
         # Coerce None to "" and ints to strings for fields that require it
         for k, v in d.items():
             if v is None:
-                d[k] = ""
+                if k in ['created_at', 'updated_at']:
+                    d[k] = None
+                else:
+                    d[k] = ""
             elif isinstance(v, int):
                 d[k] = str(v)
+            elif k in ['created_at', 'updated_at'] and hasattr(v, 'isoformat'):
+                d[k] = v.isoformat()
         return d
 
     class Config:
