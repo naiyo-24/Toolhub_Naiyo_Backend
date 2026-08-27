@@ -47,4 +47,8 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 loguru
 fpdf
+pandas
+pdfplumber
+openpyxl
+python-pptx
 xlrd>=2.0.1
