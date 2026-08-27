@@ -48,16 +48,16 @@ class UserResponse(BaseModel):
         else:
             d = dict(values)
             
-        # Coerce None to "" and ints to strings for fields that require it
+        # Coerce None or empty string to None for date fields, and ints to strings for fields that require it
         for k, v in d.items():
-            if v is None:
-                if k in ['created_at', 'updated_at']:
+            if v is None or v == "":
+                if k in ['created_at', 'updated_at', 'date_of_birth']:
                     d[k] = None
                 else:
                     d[k] = ""
             elif isinstance(v, int):
                 d[k] = str(v)
-            elif k in ['created_at', 'updated_at'] and hasattr(v, 'isoformat'):
+            elif k in ['created_at', 'updated_at', 'date_of_birth'] and hasattr(v, 'isoformat'):
                 d[k] = v.isoformat()
         return d
 
