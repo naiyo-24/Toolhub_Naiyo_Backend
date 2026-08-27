@@ -350,7 +350,7 @@ async def pdf_to_word(file: UploadFile = File(...)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"pdf2docx error: {str(e)}")
 
-@router.post("/excel-to-pdf")
+@router.post("/excel-to-pdf", response_class=Response)
 async def excel_to_pdf(file: UploadFile = File(...)):
     with tempfile.TemporaryDirectory() as tmpdir:
         input_path = os.path.join(tmpdir, file.filename)
@@ -1018,7 +1018,7 @@ async def modify_pages(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to modify PDF: {str(e)}")
 
-@router.post("/pdf-to-excel")
+@router.post("/pdf-to-excel", response_class=Response)
 async def pdf_to_excel(file: UploadFile = File(...)):
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="File must be a PDF")
@@ -1047,15 +1047,11 @@ async def pdf_to_excel(file: UploadFile = File(...)):
                     for j, table in enumerate(tables):
                         # Filter out empty rows or None values
                         clean_table = [[cell for cell in row] for row in table if any(cell for cell in row)]
-                        if len(clean_table) > 1:
-                            df = pd.DataFrame(clean_table[1:], columns=clean_table[0] if clean_table[0] else None)
-                            df.to_excel(writer, sheet_name=f'Page_{i+1}_Table_{j+1}', index=False)
-                            table_found = True
-                        elif len(clean_table) == 1:
+                        if len(clean_table) > 0:
                             df = pd.DataFrame(clean_table)
-                            df.to_excel(writer, sheet_name=f'Page_{i+1}_Table_{j+1}', index=False, header=False)
+                            sheet_name = f'Page_{i+1}_Table_{j+1}'[:31]
+                            df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
                             table_found = True
-                            
                 if not table_found:
                     for i, page in enumerate(pdf.pages):
                         text = page.extract_text()
@@ -1078,7 +1074,7 @@ async def pdf_to_excel(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to Excel failed: {str(e)}")
 
-@router.post("/pdf-to-ppt")
+@router.post("/pdf-to-ppt", response_class=Response)
 async def pdf_to_ppt(file: UploadFile = File(...)):
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="File must be a PDF")
@@ -1122,7 +1118,7 @@ async def pdf_to_ppt(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"PDF to PPT failed: {str(e)}")
 
 
-@router.post("/excel-to-csv")
+@router.post("/excel-to-csv", response_class=Response)
 async def excel_to_csv(file: UploadFile = File(...)):
     if not file.filename.lower().endswith((".xls", ".xlsx")):
         raise HTTPException(status_code=400, detail="File must be an Excel file")
@@ -1133,16 +1129,18 @@ async def excel_to_csv(file: UploadFile = File(...)):
         df = pd.read_excel(io.BytesIO(content))
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
-        return StreamingResponse(
-            iter([csv_buffer.getvalue()]),
-            media_type="text/csv",
+        
+        csv_bytes = csv_buffer.getvalue().encode('utf-8')
+        
+        return Response(
+            content=csv_bytes,
+            media_type="application/octet-stream",
             headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.csv"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/csv-to-excel")
+@router.post("/csv-to-excel", response_class=Response)
 async def csv_to_excel(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV file")
@@ -1153,9 +1151,10 @@ async def csv_to_excel(file: UploadFile = File(...)):
         df = pd.read_csv(io.BytesIO(content))
         excel_buffer = io.BytesIO()
         df.to_excel(excel_buffer, index=False)
-        excel_buffer.seek(0)
-        return StreamingResponse(
-            excel_buffer,
+        excel_bytes = excel_buffer.getvalue()
+        
+        return Response(
+            content=excel_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={file.filename.rsplit('.', 1)[0]}.xlsx"}
         )
