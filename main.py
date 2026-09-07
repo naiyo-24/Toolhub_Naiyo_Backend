@@ -200,7 +200,7 @@ app.include_router(productivity_tools_router, prefix="/productivity-tools", tags
 app.include_router(travel_tools_router, prefix="/travel-tools", tags=["Travel Tools"])
 app.include_router(form_tools_router, prefix="/form-builder", tags=["Form Builder"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(contact_router, prefix="/contact", tags=["Contact"])
+app.include_router(contact_router, prefix="/api/contact", tags=["Contact"])
 app.include_router(banker_router, prefix="/banker", tags=["Banker Onboarding"])
 app.include_router(organizations_router, prefix="/organizations", tags=["Organizations"])
 app.include_router(customers_router, prefix="/customers", tags=["Customers"])
