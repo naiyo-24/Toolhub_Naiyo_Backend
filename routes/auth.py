@@ -168,24 +168,15 @@ def get_profile(
     return UserResponse.model_validate(current_user)
 
 @router.put("/profile", response_model=UserResponse)
+@router.post("/profile", response_model=UserResponse)
 def update_profile(
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    current_user.company_name = profile_data.company_name
-    current_user.company_logo_url = profile_data.company_logo_url
-    current_user.company_address = profile_data.company_address
-    current_user.whatsapp_number = profile_data.whatsapp_number
-    current_user.phone_number = profile_data.phone_number
-    current_user.gst_number = profile_data.gst_number
-    current_user.business_type = profile_data.business_type
-    current_user.bank_name = profile_data.bank_name
-    current_user.account_name = profile_data.account_name
-    current_user.account_number = profile_data.account_number
-    current_user.ifsc_code = profile_data.ifsc_code
-    if profile_data.pricing_mode:
-        current_user.pricing_mode = profile_data.pricing_mode
+    update_data = profile_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
     
     db.commit()
     db.refresh(current_user)

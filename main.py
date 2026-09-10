@@ -23,6 +23,11 @@ import models.risk_analysis
 import models.report
 import models.task
 import models.verification
+import models.banker_profile
+import models.account_deletion
+import models.case_event
+import models.loan_calculation
+import models.notification
 import os
 
 from sqlalchemy import text

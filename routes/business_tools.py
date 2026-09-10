@@ -12,7 +12,7 @@ from routes.auth import get_current_user
 from models.user import User
 from schemas.business_tools import (
     InvoiceRequest, QuotationRequest, ReceiptRequest, BusinessCardRequest,
-    ProductCreate, ProductResponse, InventoryAdd, InventoryResponse,
+    BusinessCardProfileResponse, ProductCreate, ProductResponse, InventoryAdd, InventoryResponse,
     SalesTrackerRequest, ExpenseManagerRequest,
     ProfitCalculatorRequest, AnalyticsRequest, POSCheckoutRequest,
     PurchaseInvoiceRequest, StockMovementResponse, GSTMasterResponse
@@ -858,6 +858,14 @@ def generate_business_card(req: BusinessCardRequest, current_user: User = Depend
     with open(filepath, "wb") as f:
         f.write(buffer.getvalue())
     return {"pdf_url": f"/uploads/{filename}"}
+
+@router.get("/business-card/profile", response_model=BusinessCardProfileResponse)
+def get_business_card_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from models.business import BusinessCardProfile
+    profile = db.query(BusinessCardProfile).filter(BusinessCardProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Business card profile not found")
+    return profile
 
 # 6. Master Product Catalog & Retailer Inventory
 @router.post("/product", response_model=ProductResponse)

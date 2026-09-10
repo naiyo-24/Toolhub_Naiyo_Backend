@@ -91,6 +91,20 @@ class BusinessCardRequest(BaseModel):
     address: Optional[str] = None
     logo_url: Optional[str] = None
 
+class BusinessCardProfileResponse(BaseModel):
+    name: str
+    job_title: str
+    company_name: str
+    phone: str
+    email: str
+    website: Optional[str] = None
+    address: Optional[str] = None
+    card_design_type: Optional[str] = "modern"
+    custom_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 # 5. Master Product Catalog & Retailer Inventory
 class GSTMasterResponse(BaseModel):
     id: int
